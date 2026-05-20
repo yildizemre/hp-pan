@@ -8,6 +8,7 @@ from pg_store import (  # noqa: F401
     create_user,
     delete_camera,
     delete_user,
+    ensure_admin_seed,
     ensure_demo_seed,
     find_user_by_email,
     find_user_by_id,

@@ -139,7 +139,7 @@ export default function AdminUsersView() {
                         <ExternalLink className="h-3.5 w-3.5" />
                         {t.paneleGit}
                       </button>
-                      {u.id !== currentUser?.id && u.id !== "u-admin" && (
+                      {u.id !== currentUser?.id && u.id !== "u-admin" && u.id !== "u-hype-admin" && (
                         <button
                           type="button"
                           onClick={() => remove(u)}

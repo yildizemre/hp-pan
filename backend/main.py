@@ -32,6 +32,7 @@ from store import (
     list_users,
     record_heartbeat,
     delete_user,
+    ensure_admin_seed,
     ensure_demo_seed,
     get_daily_metric,
     metrics_trend,
@@ -126,8 +127,9 @@ async def _ws_push_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed_if_empty()
+    ensure_admin_seed()
     ensure_demo_seed()
-    for uid in ["u-demo", "u-emilio", "u-admin", "u-mudur", "u-isg", "u-hype-demo"]:
+    for uid in ["u-demo", "u-emilio", "u-admin", "u-mudur", "u-isg", "u-hype-demo", "u-hype-admin"]:
         u = find_user_by_id(uid)
         if u:
             record_heartbeat(uid)

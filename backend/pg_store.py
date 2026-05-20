@@ -10,7 +10,16 @@ from sqlalchemy.orm import Session, joinedload, object_session
 from models import CameraModel, DailyMetricModel, HeartbeatModel, NotificationModel, SessionLocal, UserModel, init_db
 from roles import modules_for_role
 from mock_data import NOTIFICATIONS
-from demo_data import DEMO_EMAIL, DEMO_USER_ID, date_range, kpi_for_date, notification_for_day
+from demo_data import (
+    ADMIN_EMAIL,
+    ADMIN_PASSWORD,
+    ADMIN_USER_ID,
+    DEMO_EMAIL,
+    DEMO_USER_ID,
+    date_range,
+    kpi_for_date,
+    notification_for_day,
+)
 
 pwd = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 MODULES = ["isg", "sayim", "urun", "mes", "genel"]
@@ -66,6 +75,16 @@ SEED_USERS = [
         "rol": "user",
         "kurulum": "Hype Vision Lab",
         "kameralar": _cams(6, "Hype"),
+    },
+    {
+        "id": ADMIN_USER_ID,
+        "kullanici_adi": "admin",
+        "ad": "Hype Admin",
+        "email": ADMIN_EMAIL,
+        "sifre": ADMIN_PASSWORD,
+        "rol": "admin",
+        "kurulum": "Hype Vision Lab",
+        "kameralar": [],
     },
 ]
 
@@ -139,6 +158,39 @@ def seed_if_empty():
             )
         db.commit()
     ensure_demo_seed()
+    ensure_admin_seed()
+
+
+def ensure_admin_seed():
+    """admin@hypevisionlab.com — yönetici (mevcut DB'de yoksa eklenir)."""
+    init_db()
+    with _session() as db:
+        user = db.query(UserModel).filter(UserModel.email == ADMIN_EMAIL.lower()).first()
+        if user:
+            if user.rol != "admin":
+                user.rol = "admin"
+                db.commit()
+            return
+        db.add(
+            UserModel(
+                id=ADMIN_USER_ID,
+                kullanici_adi="admin",
+                ad="Hype Admin",
+                email=ADMIN_EMAIL.lower(),
+                sifre_hash=hash_password(ADMIN_PASSWORD),
+                rol="admin",
+                kurulum="Hype Vision Lab",
+                onboarding_done=True,
+            )
+        )
+        db.merge(
+            HeartbeatModel(
+                user_id=ADMIN_USER_ID,
+                camera_id=None,
+                zaman=datetime.now(timezone.utc),
+            )
+        )
+        db.commit()
 
 
 def ensure_demo_seed():

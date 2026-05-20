@@ -7,6 +7,10 @@ from datetime import datetime, timedelta
 DEMO_EMAIL = "demo@hypevisionlab.com"
 DEMO_USER_ID = "u-hype-demo"
 
+ADMIN_EMAIL = "admin@hypevisionlab.com"
+ADMIN_USER_ID = "u-hype-admin"
+ADMIN_PASSWORD = "admin"
+
 
 def date_range(days: int = 90) -> list[str]:
     base = datetime.now().date()
