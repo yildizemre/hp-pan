@@ -1,20 +1,20 @@
 #!/bin/bash
 # panel.hypevisionlab.com + Let's Encrypt SSL
-# Kullanım: cd ~/hp-pan && chmod +x deploy/setup-domain-ssl.sh && sudo ./deploy/setup-domain-ssl.sh
+# Kullanım: deactivate 2>/dev/null; cd ~/hp-pan && sudo ./deploy/setup-domain-ssl.sh
 #
-# Ön koşul: DNS A kaydı panel -> sunucu IP (propagation tamamlanmış olmalı)
+# Not: venv aktifken apt certbot pyOpenSSL ile çakışabilir — script temiz ortam kullanır.
 
 set -e
 
 DOMAIN="${DOMAIN:-panel.hypevisionlab.com}"
 EMAIL="${CERTBOT_EMAIL:-admin@hypevisionlab.com}"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CERTBOT_BIN=""
 
 echo "=== HypeVision domain + SSL ==="
 echo "Domain: $DOMAIN"
 echo "Proje:  $PROJECT_DIR"
 
-# nginx www-data /root okuma
 chmod 755 /root 2>/dev/null || true
 chmod -R 755 "$PROJECT_DIR/dist" 2>/dev/null || true
 
@@ -27,34 +27,76 @@ nginx -t
 systemctl reload nginx
 
 echo ""
-echo "DNS kontrolü (sunucu IP ile panel A kaydı eşleşmeli):"
+echo "DNS kontrolü (@8.8.8.8 — global):"
 SERVER_IP="$(curl -4 -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
-DNS_IP="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1; exit}')"
+DNS_IP="$(dig +short "$DOMAIN" @8.8.8.8 2>/dev/null | grep -E '^[0-9.]+$' | head -1)"
 echo "  Sunucu IP: ${SERVER_IP:-?}"
 echo "  DNS $DOMAIN -> ${DNS_IP:-çözülemedi}"
 if [ -n "$SERVER_IP" ] && [ -n "$DNS_IP" ] && [ "$SERVER_IP" != "$DNS_IP" ]; then
   echo ""
-  echo "[!] UYARI: DNS IP ($DNS_IP) sunucu IP ($SERVER_IP) ile aynı değil."
-  echo "    TurkTicaret panelinde A kaydını düzelt, 5-60 dk bekle, tekrar çalıştır."
-  read -r -p "Yine de devam edilsin mi? (e/h) " ans
+  echo "[!] UYARI: Global DNS ($DNS_IP) sunucu IP ($SERVER_IP) ile farklı."
+  echo "    Netlify DNS A kaydını kontrol et. Yine de devam için: e"
+  read -r -p "Devam? (e/h) " ans
   [ "$ans" = "e" ] || [ "$ans" = "E" ] || exit 1
 fi
 
-apt-get update -qq
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-nginx
-
-# Firewall (varsa)
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
   ufw allow 80/tcp
   ufw allow 443/tcp
 fi
 
-certbot --nginx \
-  -d "$DOMAIN" \
-  --non-interactive \
-  --agree-tos \
-  --email "$EMAIL" \
-  --redirect
+install_certbot() {
+  # Snap certbot — venv cryptography ile çakışmaz (önerilen)
+  if command -v snap >/dev/null 2>&1; then
+    echo "[*] certbot (snap) kuruluyor..."
+    snap install core 2>/dev/null || snap refresh core 2>/dev/null || true
+    if snap install --classic certbot 2>/dev/null; then
+      ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || true
+      CERTBOT_BIN="/snap/bin/certbot"
+      return 0
+    fi
+  fi
+
+  echo "[*] certbot (apt) kuruluyor..."
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-nginx \
+    python3-openssl python3-cryptography 2>/dev/null || true
+  CERTBOT_BIN="$(command -v certbot)"
+}
+
+run_certbot() {
+  # venv PYTHONPATH / cryptography certbot'u bozar
+  env -i \
+    HOME=/root \
+    PATH=/snap/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/bin \
+    TERM="${TERM:-xterm}" \
+    "$CERTBOT_BIN" --nginx \
+    -d "$DOMAIN" \
+    --non-interactive \
+    --agree-tos \
+    --email "$EMAIL" \
+    --redirect
+}
+
+install_certbot
+
+if ! env -i PATH="/snap/bin:/usr/sbin:/usr/bin" "$CERTBOT_BIN" --version >/dev/null 2>&1; then
+  echo "[!] certbot test başarısız — OpenSSL paketleri onarılıyor..."
+  apt-get install -y --reinstall python3-openssl python3-cryptography openssl 2>/dev/null || true
+fi
+
+if ! run_certbot 2>/dev/null; then
+  echo ""
+  echo "[!] İlk deneme başarısız. Snap certbot ile tekrar..."
+  if command -v snap >/dev/null 2>&1; then
+    snap install --classic certbot 2>/dev/null || true
+    CERTBOT_BIN="/snap/bin/certbot"
+    ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || true
+    run_certbot
+  else
+    exit 1
+  fi
+fi
 
 nginx -t
 systemctl reload nginx
@@ -65,4 +107,3 @@ echo "  Panel:  https://$DOMAIN/"
 echo "  Admin:  admin@hypevisionlab.com / admin"
 echo "  Demo:   demo@hypevisionlab.com / demo"
 echo "============================================"
-echo "Sertifika yenileme otomatik (certbot timer)."

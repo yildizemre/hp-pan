@@ -52,9 +52,23 @@ sudo certbot --nginx -d panel.hypevisionlab.com --redirect
 
 | Sorun | Çözüm |
 |--------|--------|
-| certbot DNS hatası | A kaydı doğru IP mi, `dig panel.hypevisionlab.com` |
+| certbot DNS hatası | A kaydı doğru IP mi, `dig @8.8.8.8 panel.hypevisionlab.com` |
+| `X509_V_FLAG_NOTIFY_POLICY` / certbot çöküyor | **venv kapat:** `deactivate`, sonra snap certbot (aşağı) |
 | 403 Forbidden | `chmod 755 /root` ve `chmod -R 755 ~/hp-pan/dist` |
 | SSL yok | `sudo certbot certificates` |
 | API 502 | `sudo systemctl status hypevision-api` |
+
+### certbot OpenSSL hatası (venv çakışması)
+
+```bash
+deactivate
+sudo snap install core && sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -sf /snap/bin/certbot /usr/bin/certbot
+sudo env -i PATH="/snap/bin:/usr/sbin:/usr/bin" HOME=/root \
+  certbot --nginx -d panel.hypevisionlab.com --redirect \
+  --non-interactive --agree-tos -m admin@hypevisionlab.com
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 Panel: **https://panel.hypevisionlab.com**
