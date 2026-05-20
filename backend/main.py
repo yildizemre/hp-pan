@@ -318,7 +318,7 @@ async def create_notification(
     detay: str = Form(""),
     seviye: str = Form("bilgi"),
     modul: str = Form(""),
-    gorsel: UploadFile | None = File(None),
+    gorsel: Optional[UploadFile] = File(None),
 ):
     global _next_mem_id
     gorsel_url = ""
@@ -417,14 +417,14 @@ def productivity():
 
 
 @app.get("/api/counts/products")
-def product_counts(tarih: str | None = None):
+def product_counts(tarih: Optional[str] = None):
     key = tarih or AVAILABLE_DATES[0]
     payload = PRODUCT_BY_DATE.get(key) or product_for_date(key)
     return {"tarih": key, "dates": AVAILABLE_DATES, **payload}
 
 
 @app.get("/api/mes/productivity")
-def mes_productivity(tarih: str | None = None, user: dict = Depends(get_current_user)):
+def mes_productivity(tarih: Optional[str] = None, user: dict = Depends(get_current_user)):
     key = tarih or AVAILABLE_DATES[0]
     k = get_daily_metric(user["id"], key) or kpi_for_date(key)
     personeller = personnel_for_date(key)
@@ -442,7 +442,7 @@ def mes_productivity(tarih: str | None = None, user: dict = Depends(get_current_
 
 
 @app.get("/api/reports/kpis")
-def reports_kpis(tarih: str | None = None, user: dict = Depends(get_current_user)):
+def reports_kpis(tarih: Optional[str] = None, user: dict = Depends(get_current_user)):
     key = tarih or AVAILABLE_DATES[0]
     uid = user["id"]
     k = get_daily_metric(uid, key) or kpi_for_date(key)
@@ -502,7 +502,7 @@ def export_report(
 
 @app.get("/api/dashboard/all")
 def dashboard_all(
-    compare: str | None = None,
+    compare: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
     today = AVAILABLE_DATES[0]
