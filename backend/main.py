@@ -5,6 +5,7 @@ import shutil
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import List, Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -91,17 +92,17 @@ class CameraBody(BaseModel):
 
 
 class HeartbeatBody(BaseModel):
-    camera_id: str | None = None
+    camera_id: Optional[str] = None
 
 
 class LayoutBody(BaseModel):
     dashboard_layout: dict
-    onboarding_done: bool | None = None
+    onboarding_done: Optional[bool] = None
 
 
 class ExportBody(BaseModel):
     title: str
-    rows: list[dict] = []
+    rows: List[dict] = []
     format: str = "pdf"
 
 
